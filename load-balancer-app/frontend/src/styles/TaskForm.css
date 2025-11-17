@@ -1,0 +1,142 @@
+.task-form-container {
+	background: white;
+	border: 1px solid #e1e8ed;
+	border-radius: 12px;
+	padding: 2rem;
+	margin-bottom: 2rem;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.task-form-container h2 {
+	font-size: 1.5rem;
+	font-weight: 600;
+	color: #1e293b;
+	margin-bottom: 0.5rem;
+}
+
+.form-description {
+	font-size: 0.875rem;
+	color: #64748b;
+	margin-bottom: 2rem;
+}
+
+.task-form {
+	display: flex;
+	flex-direction: column;
+	gap: 1.5rem;
+}
+
+.form-row {
+	display: grid;
+	grid-template-columns: 1fr auto;
+	gap: 1.5rem;
+	align-items: end;
+}
+
+.form-group label {
+	display: block;
+	font-size: 0.875rem;
+	font-weight: 500;
+	color: #374151;
+	margin-bottom: 0.5rem;
+}
+
+.form-group input {
+	width: 100%;
+	padding: 0.625rem 1rem;
+	border: 1px solid #d1d5db;
+	border-radius: 6px;
+	font-size: 0.875rem;
+	transition: all 0.2s;
+}
+
+.form-group input:focus {
+	outline: none;
+	border-color: #3b82f6;
+	box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.form-group input:disabled {
+	background: #f9fafb;
+	cursor: not-allowed;
+}
+
+.form-group small {
+	display: block;
+	margin-top: 0.5rem;
+	font-size: 0.75rem;
+	color: #64748b;
+}
+
+.form-actions {
+	display: flex;
+	gap: 0.75rem;
+}
+
+.matrix-section {
+	margin-top: 1rem;
+}
+
+.matrix-section h3 {
+	font-size: 1rem;
+	font-weight: 600;
+	color: #1e293b;
+	margin-bottom: 1rem;
+}
+
+.matrix-grid {
+	display: grid;
+	gap: 0.5rem;
+	padding: 1rem;
+	background: #f8fafc;
+	border-radius: 8px;
+	border: 1px solid #e2e8f0;
+}
+
+.matrix-input {
+	width: 100%;
+	padding: 0.5rem;
+	border: 1px solid #d1d5db;
+	border-radius: 4px;
+	font-size: 0.8125rem;
+	text-align: center;
+	transition: all 0.2s;
+}
+
+.matrix-input:focus {
+	outline: none;
+	border-color: #3b82f6;
+	box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.matrix-input:disabled {
+	background: #f1f5f9;
+	cursor: not-allowed;
+}
+
+.large-matrix-notice {
+	padding: 1.5rem;
+	background: #f8fafc;
+	border: 1px solid #e2e8f0;
+	border-radius: 8px;
+	text-align: center;
+	margin-top: 1rem;
+}
+
+.large-matrix-notice p {
+	font-size: 0.875rem;
+	color: #64748b;
+	margin-bottom: 0.5rem;
+}
+
+.large-matrix-notice p strong {
+	color: #3b82f6;
+	font-weight: 600;
+}
+
+.btn-large {
+	width: 100%;
+	padding: 0.875rem 1.5rem;
+	font-size: 1rem;
+	justify-content: center;
+}

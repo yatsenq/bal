@@ -1,0 +1,146 @@
+.sidebar {
+	width: 260px;
+	height: 100vh;
+	background: #1e293b;
+	display: flex;
+	flex-direction: column;
+	position: fixed;
+	left: 0;
+	top: 0;
+	border-right: 1px solid #334155;
+}
+
+.sidebar-header {
+	padding: 1.5rem;
+	border-bottom: 1px solid #334155;
+}
+
+.logo {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+}
+
+.logo-icon {
+	width: 40px;
+	height: 40px;
+	background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+	border-radius: 10px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: white;
+	font-weight: 700;
+	font-size: 1rem;
+}
+
+.logo-text {
+	font-size: 1.125rem;
+	font-weight: 600;
+	color: white;
+}
+
+.sidebar-nav {
+	flex: 1;
+	padding: 1.5rem 1rem;
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+}
+
+.nav-item {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	padding: 0.75rem 1rem;
+	background: transparent;
+	border: none;
+	border-radius: 8px;
+	color: #94a3b8;
+	font-size: 0.9375rem;
+	font-weight: 500;
+	cursor: pointer;
+	transition: all 0.2s;
+	text-align: left;
+}
+
+.nav-item:hover {
+	background: #334155;
+	color: #e2e8f0;
+}
+
+.nav-item.active {
+	background: #3b82f6;
+	color: white;
+}
+
+.nav-item svg {
+	flex-shrink: 0;
+}
+
+.sidebar-footer {
+	padding: 1rem;
+	border-top: 1px solid #334155;
+}
+
+.user-profile {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	padding: 0.75rem;
+	margin-bottom: 0.75rem;
+	background: #0f172a;
+	border-radius: 8px;
+}
+
+.user-avatar {
+	width: 36px;
+	height: 36px;
+	background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%);
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: white;
+	font-weight: 600;
+	font-size: 0.875rem;
+}
+
+.user-details {
+	flex: 1;
+}
+
+.user-name {
+	font-size: 0.875rem;
+	font-weight: 600;
+	color: white;
+}
+
+.user-role {
+	font-size: 0.75rem;
+	color: #64748b;
+	text-transform: capitalize;
+}
+
+.logout-btn {
+	width: 100%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.5rem;
+	padding: 0.625rem 1rem;
+	background: transparent;
+	border: 1px solid #334155;
+	border-radius: 6px;
+	color: #94a3b8;
+	font-size: 0.875rem;
+	font-weight: 500;
+	cursor: pointer;
+	transition: all 0.2s;
+}
+
+.logout-btn:hover {
+	background: #dc2626;
+	border-color: #dc2626;
+	color: white;
+}
