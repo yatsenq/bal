@@ -65,7 +65,7 @@ services:
       - WORKER_ID=worker-1
       - DATABASE_URL=postgresql://admin:admin123@postgres:5432/load_balancer_db
       - REDIS_URL=redis://redis:6379
-      - JWT_SECRET=your-secret-key-change-in-production
+      - JWT_SECRET=MmLun3Bd8IPqKilebjXEToy4CGOwt5pAZk69z1SrsVDYQ2UJFcv0hgfaxW7NHR
     ports:
       - '3001:3001'
     depends_on:
@@ -89,7 +89,7 @@ services:
       - WORKER_ID=worker-2
       - DATABASE_URL=postgresql://admin:admin123@postgres:5432/load_balancer_db
       - REDIS_URL=redis://redis:6379
-      - JWT_SECRET=your-secret-key-change-in-production
+      - JWT_SECRET=MmLun3Bd8IPqKilebjXEToy4CGOwt5pAZk69z1SrsVDYQ2UJFcv0hgfaxW7NHR
     ports:
       - '3002:3002'
     depends_on:

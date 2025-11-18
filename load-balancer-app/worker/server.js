@@ -14,13 +14,32 @@ const wss = new WebSocket.Server({ server, path: '/ws' })
 
 const PORT = process.env.PORT || 3001
 const WORKER_ID = process.env.WORKER_ID || 'worker-unknown'
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key'
+const JWT_SECRET = process.env.JWT_SECRET
+
+// Перевірка що секрет встановлений
+if (!JWT_SECRET || JWT_SECRET === 'your-secret-key-change-in-production') {
+	console.error('❌ CRITICAL: JWT_SECRET must be set in environment variables!')
+	if (process.env.NODE_ENV === 'production') {
+		console.error('❌ Exiting in production mode...')
+		process.exit(1)
+	}
+	console.warn('⚠️  Using default JWT_SECRET in development mode')
+}
 const MAX_MATRIX_SIZE = 2000
 
 const pool = new Pool({
 	connectionString: process.env.DATABASE_URL,
+	max: 20,
+	idleTimeoutMillis: 30000,
+	connectionTimeoutMillis: 5000,
 })
 
+pool.on('error', (err, client) => {
+	console.error(`[${WORKER_ID}] ❌ Unexpected database error:`, err.message)
+	console.error(
+		`[${WORKER_ID}] ⚠️ Database connection lost, but pool will reconnect automatically`
+	)
+})
 const taskQueue = new Queue(
 	'linear-equations',
 	process.env.REDIS_URL || 'redis://127.0.0.1:6379',
@@ -31,10 +50,50 @@ const taskQueue = new Queue(
 				type: 'exponential',
 				delay: 2000,
 			},
+			timeout: 600000,
+			removeOnComplete: false,
+			removeOnFail: false,
+		},
+		settings: {
+			stalledInterval: 60000,
+			maxStalledCount: 2,
+			lockDuration: 300000,
 		},
 	}
 )
+taskQueue.on('ready', async () => {
+	console.log(`[${WORKER_ID}] 🧹 Cleaning up stalled jobs...`)
 
+	const jobs = await taskQueue.getJobs(['active', 'waiting', 'delayed'])
+
+	for (const job of jobs) {
+		const taskId = job.data.taskId
+
+		try {
+			const result = await pool.query(
+				'SELECT status FROM tasks WHERE id = $1',
+				[taskId]
+			)
+
+			const dbStatus = result.rows[0]?.status
+
+			if (
+				dbStatus === 'completed' ||
+				dbStatus === 'failed' ||
+				dbStatus === 'cancelled'
+			) {
+				await job.remove()
+				console.log(`[${WORKER_ID}] 🗑️ Removed stale job for task ${taskId}`)
+			}
+		} catch (err) {
+			console.error(`[${WORKER_ID}] Error checking job ${taskId}:`, err.message)
+		}
+	}
+
+	console.log(`[${WORKER_ID}] ✅ Cleanup complete`)
+})
+
+app.use(cors())
 app.use(cors())
 app.use(express.json({ limit: '200mb' }))
 
@@ -327,66 +386,15 @@ app.get('/api/tasks/:id', authenticateToken, async (req, res) => {
 	}
 })
 
-app.delete('/api/tasks/:id', authenticateToken, async (req, res) => {
-	try {
-		const taskId = req.params.id
-		const userId = req.user.userId
-
-		const result = await pool.query(
-			'SELECT status FROM tasks WHERE id = $1 AND user_id = $2',
-			[taskId, userId]
-		)
-
-		if (result.rows.length === 0) {
-			return res.status(404).json({ error: 'Task not found' })
-		}
-
-		const status = result.rows[0].status
-
-		if (
-			status === 'completed' ||
-			status === 'failed' ||
-			status === 'cancelled'
-		) {
-			return res
-				.status(400)
-				.json({ error: 'Cannot cancel task in current state' })
-		}
-
-		const job = await taskQueue.getJob(`task-${taskId}`)
-		if (job) {
-			await job.remove()
-		}
-
-		await pool.query(
-			`UPDATE tasks 
-       SET status = 'cancelled', completed_at = NOW()
-       WHERE id = $1`,
-			[taskId]
-		)
-
-		console.log(`[${WORKER_ID}] Task ${taskId} cancelled by user ${userId}`)
-
-		sendToUser(userId, {
-			type: 'task_cancelled',
-			taskId: parseInt(taskId),
-		})
-
-		res.json({ message: 'Task cancelled successfully' })
-	} catch (error) {
-		console.error(`[${WORKER_ID}] Cancel task error:`, error)
-		res.status(500).json({ error: 'Failed to cancel task' })
-	}
-})
-
 app.put('/api/tasks/:id/cancel', authenticateToken, async (req, res) => {
 	const taskId = req.params.id
 	const userId = req.user.userId
 
 	try {
-		const taskResult = await pool.query('SELECT * FROM tasks WHERE id = $1', [
-			taskId,
-		])
+		const taskResult = await pool.query(
+			'SELECT * FROM tasks WHERE id = $1 AND user_id = $2',
+			[taskId, userId]
+		)
 
 		if (taskResult.rows.length === 0) {
 			return res.status(404).json({ error: 'Task not found' })
@@ -400,15 +408,17 @@ app.put('/api/tasks/:id/cancel', authenticateToken, async (req, res) => {
 			})
 		}
 
-		const job = await taskQueue.getJob(`task-${taskId}`)
-		if (job) {
-			await job.remove()
+		if (task.status === 'pending') {
+			const job = await taskQueue.getJob(`task-${taskId}`)
+			if (job) {
+				await job.remove()
+			}
 		}
 
 		await pool.query(
 			`UPDATE tasks 
-       SET status = 'cancelled', completed_at = NOW() 
-       WHERE id = $1`,
+   SET status = 'cancelled', completed_at = NOW() 
+   WHERE id = $1`,
 			[taskId]
 		)
 
@@ -428,7 +438,45 @@ app.put('/api/tasks/:id/cancel', authenticateToken, async (req, res) => {
 		res.status(500).json({ error: 'Failed to cancel task' })
 	}
 })
+app.delete('/api/tasks/:id', authenticateToken, async (req, res) => {
+	const taskId = req.params.id
+	const userId = req.user.userId
 
+	try {
+		const taskResult = await pool.query(
+			'SELECT * FROM tasks WHERE id = $1 AND user_id = $2',
+			[taskId, userId]
+		)
+
+		if (taskResult.rows.length === 0) {
+			return res.status(404).json({ error: 'Task not found' })
+		}
+
+		const task = taskResult.rows[0]
+
+		if (
+			task.status !== 'completed' &&
+			task.status !== 'cancelled' &&
+			task.status !== 'failed'
+		) {
+			return res.status(400).json({
+				error: 'Can only delete completed, cancelled or failed tasks',
+			})
+		}
+
+		await pool.query('DELETE FROM tasks WHERE id = $1', [taskId])
+
+		console.log(`[${WORKER_ID}] Task ${taskId} deleted by user ${userId}`)
+
+		res.json({
+			success: true,
+			message: 'Task deleted successfully',
+		})
+	} catch (error) {
+		console.error(`[${WORKER_ID}] Delete task error:`, error)
+		res.status(500).json({ error: 'Failed to delete task' })
+	}
+})
 // ==================== ADMIN ENDPOINTS ====================
 
 app.get('/api/admin/monitoring', authenticateToken, async (req, res) => {
@@ -512,6 +560,28 @@ async function multiplyMatrices(matrixA, matrixB, taskId, userId) {
 		.map(() => Array(n).fill(0))
 
 	try {
+		let delay, updateInterval
+
+		if (n <= 50) {
+			delay = 200
+			updateInterval = 1
+		} else if (n <= 100) {
+			delay = 100
+			updateInterval = 2
+		} else if (n <= 200) {
+			delay = 200
+			updateInterval = 5
+		} else if (n <= 500) {
+			delay = 300
+			updateInterval = 5
+		} else if (n <= 1000) {
+			delay = 600
+			updateInterval = 5
+		} else {
+			delay = 500
+			updateInterval = 5
+		}
+
 		for (let i = 0; i < n; i++) {
 			for (let j = 0; j < n; j++) {
 				let sum = 0
@@ -521,9 +591,25 @@ async function multiplyMatrices(matrixA, matrixB, taskId, userId) {
 				C[i][j] = sum
 			}
 
-			const progress = Math.floor(((i + 1) / n) * 100)
-			await updateTaskProgress(taskId, progress, userId)
-			await new Promise(resolve => setTimeout(resolve, 200))
+			if (i % updateInterval === 0 || i === n - 1) {
+				const statusCheck = await pool.query(
+					'SELECT status FROM tasks WHERE id = $1',
+					[taskId]
+				)
+
+				if (statusCheck.rows[0]?.status === 'cancelled') {
+					console.log(
+						`[${WORKER_ID}] Task ${taskId} cancelled during processing at ${Math.floor(
+							((i + 1) / n) * 100
+						)}%`
+					)
+					throw new Error('Task cancelled by user')
+				}
+				const progress = Math.floor(((i + 1) / n) * 100)
+				await updateTaskProgress(taskId, progress, userId)
+
+				await new Promise(resolve => setTimeout(resolve, delay))
+			}
 		}
 
 		return C
@@ -547,10 +633,19 @@ async function updateTaskProgress(taskId, progress, userId) {
 	console.log(`[${WORKER_ID}] Task ${taskId} progress: ${progress}%`)
 }
 
-taskQueue.process(5, async job => {
+taskQueue.process(5, async (job, done) => {
 	const { taskId, userId, matrix } = job.data
 
 	console.log(`[${WORKER_ID}] Processing task ${taskId}...`)
+	const checkResult = await pool.query(
+		'SELECT status FROM tasks WHERE id = $1',
+		[taskId]
+	)
+
+	if (checkResult.rows[0]?.status === 'cancelled') {
+		console.log(`[${WORKER_ID}] Task ${taskId} was cancelled before processing`)
+		return { success: false, cancelled: true }
+	}
 
 	try {
 		await pool.query(
@@ -583,6 +678,17 @@ taskQueue.process(5, async job => {
 
 		return { success: true, result }
 	} catch (error) {
+		if (error.message === 'Task cancelled by user') {
+			console.log(`[${WORKER_ID}] Task ${taskId} cancelled successfully`)
+
+			sendToUser(userId, {
+				type: 'task_cancelled',
+				taskId: parseInt(taskId),
+			})
+
+			return { success: false, cancelled: true }
+		}
+
 		console.error(`[${WORKER_ID}] Task ${taskId} failed:`, error.message)
 
 		await pool.query(
@@ -630,10 +736,21 @@ server.listen(PORT, () => {
 
 process.on('SIGTERM', async () => {
 	console.log(`[${WORKER_ID}] SIGTERM received, shutting down gracefully...`)
-	await taskQueue.close()
+
+	console.log(`[${WORKER_ID}] Waiting for active jobs to complete...`)
+	await taskQueue.close(30000)
+
 	await pool.end()
+
 	server.close(() => {
 		console.log(`[${WORKER_ID}] Server closed`)
 		process.exit(0)
 	})
+})
+
+process.on('SIGINT', async () => {
+	console.log(`[${WORKER_ID}] SIGINT received, shutting down gracefully...`)
+	await taskQueue.close(30000)
+	await pool.end()
+	process.exit(0)
 })

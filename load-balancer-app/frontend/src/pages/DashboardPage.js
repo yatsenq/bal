@@ -17,12 +17,23 @@ function DashboardPage({ user, onLogout }) {
 		loadTasks()
 		connectWebSocket()
 
+		const pollInterval = setInterval(() => {
+			const hasActiveTasks = tasks.some(
+				task => task.status === 'pending' || task.status === 'processing'
+			)
+
+			if (hasActiveTasks) {
+				loadTasks()
+			}
+		}, 3000)
+
 		return () => {
 			if (ws) {
 				ws.close()
 			}
+			clearInterval(pollInterval)
 		}
-	}, [])
+	}, [tasks])
 
 	const connectWebSocket = () => {
 		const token = localStorage.getItem('token')
@@ -55,12 +66,19 @@ function DashboardPage({ user, onLogout }) {
 	}
 
 	const handleWebSocketMessage = data => {
-		if (data.type === 'task_progress') {
+		if (data.type === 'task_started') {
+			updateTaskStatus(data.taskId, 'processing', {
+				progress: 0,
+				worker_id: data.workerId,
+			})
+		} else if (data.type === 'task_progress') {
 			updateTaskProgress(data.taskId, data.progress)
 		} else if (data.type === 'task_completed') {
 			updateTaskStatus(data.taskId, 'completed', data.result)
 		} else if (data.type === 'task_failed') {
 			updateTaskStatus(data.taskId, 'failed', { error: data.error })
+		} else if (data.type === 'task_cancelled') {
+			updateTaskStatus(data.taskId, 'cancelled', {})
 		}
 	}
 
@@ -101,8 +119,17 @@ function DashboardPage({ user, onLogout }) {
 	const handleTaskCreated = newTask => {
 		setTasks(prevTasks => [newTask, ...prevTasks])
 		setShowForm(false)
-	}
 
+		setTimeout(() => {
+			setTasks(prevTasks =>
+				prevTasks.map(task =>
+					task.id === newTask.id && task.status === 'pending'
+						? { ...task, status: 'processing', progress: 0 }
+						: task
+				)
+			)
+		}, 2000)
+	}
 	const handleTaskCancelled = async taskId => {
 		try {
 			await tasksAPI.cancel(taskId)
@@ -110,6 +137,19 @@ function DashboardPage({ user, onLogout }) {
 		} catch (err) {
 			alert(
 				'Error cancelling task: ' + (err.response?.data?.error || err.message)
+			)
+		}
+	}
+	const handleTaskDeleted = async taskId => {
+		try {
+			await tasksAPI.delete(taskId)
+
+			setTasks(prevTasks => prevTasks.filter(task => task.id !== taskId))
+
+			console.log(`Task ${taskId} deleted successfully`)
+		} catch (err) {
+			alert(
+				'Error deleting task: ' + (err.response?.data?.error || err.message)
 			)
 		}
 	}
@@ -166,7 +206,11 @@ function DashboardPage({ user, onLogout }) {
 						<p>Loading tasks...</p>
 					</div>
 				) : (
-					<TaskList tasks={tasks} onCancel={handleTaskCancelled} />
+					<TaskList
+						tasks={tasks}
+						onCancel={handleTaskCancelled}
+						onDelete={handleTaskDeleted}
+					/>
 				)}
 			</div>
 		</div>

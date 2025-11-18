@@ -16,7 +16,6 @@ function App() {
 	const [loading, setLoading] = useState(true)
 
 	useEffect(() => {
-		// Перевірка токену при завантаженні
 		const token = localStorage.getItem('token')
 		const userData = localStorage.getItem('user')
 

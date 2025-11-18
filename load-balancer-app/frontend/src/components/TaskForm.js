@@ -22,16 +22,28 @@ function TaskForm({ onTaskCreated }) {
 		const val = e.target.value
 		setSize(val)
 		const num = parseInt(val)
-		if (!isNaN(num) && num >= 2 && num <= 1000) {
+
+		if (!isNaN(num) && num >= 2 && num <= 10) {
 			setMatrix(generateMatrix(num))
 		}
 	}
 
 	const handleBlur = () => {
 		const num = parseInt(size)
+
 		if (isNaN(num) || num < 2) {
 			setSize('2')
 			setMatrix(generateMatrix(2))
+		} else if (num > 2000) {
+			setSize('2000')
+			setMatrix([])
+			setError('⚠️ Максимальний розмір: 2000×2000')
+		} else if (num <= 10) {
+			setMatrix(generateMatrix(num))
+			setError('')
+		} else {
+			setMatrix([])
+			setError('')
 		}
 	}
 
@@ -44,7 +56,12 @@ function TaskForm({ onTaskCreated }) {
 	const handleRandomize = () => {
 		const num = parseInt(size) || 2
 		const validSize = Math.max(2, Math.min(1000, num))
-		setMatrix(generateMatrix(validSize))
+
+		if (validSize <= 10) {
+			setMatrix(generateMatrix(validSize))
+		} else {
+			alert('✅ Випадкові значення будуть згенеровані при створенні задачі')
+		}
 	}
 
 	const handleSubmit = async e => {
@@ -60,8 +77,16 @@ function TaskForm({ onTaskCreated }) {
 			return
 		}
 
+		if (num > 2000) {
+			setError('⚠️ Максимальний розмір матриці: 2000×2000')
+			setLoading(false)
+			return
+		}
+
+		const finalMatrix = num > 10 ? generateMatrix(num) : matrix
+
 		try {
-			const response = await tasksAPI.create(matrix)
+			const response = await tasksAPI.create(finalMatrix)
 
 			const newTask = {
 				id: response.data.taskId,
@@ -116,11 +141,9 @@ function TaskForm({ onTaskCreated }) {
 							onChange={handleSizeChange}
 							onBlur={handleBlur}
 							disabled={loading}
-							placeholder='2-1000'
+							placeholder='2-2000'
 						/>
-						<small>
-							Від 2 до 1000 (рекомендовано 200-500 для тривалого обчислення)
-						</small>
+						<small>Від 2 до 2000</small>
 					</div>
 					<div className='form-actions'>
 						<button
@@ -129,12 +152,12 @@ function TaskForm({ onTaskCreated }) {
 							className='btn btn-secondary'
 							disabled={loading}
 						>
-							🎲 Random Values
+							🎲 Рандомні значення
 						</button>
 					</div>
 				</div>
 
-				{displaySize <= 6 && (
+				{displaySize <= 10 && (
 					<div className='matrix-section'>
 						<h3>
 							Матриця A ({displaySize}×{displaySize}):
@@ -165,14 +188,9 @@ function TaskForm({ onTaskCreated }) {
 				{displaySize > 6 && (
 					<div className='large-matrix-notice'>
 						<p>
-							ℹ️ Матриця {displaySize}×{displaySize} занадто велика для
-							відображення.
-						</p>
-						<p>Використовуються випадкові значення.</p>
-						<p>
-							<strong>
-								Час обчислення: ~{Math.ceil(displaySize / 50)} хвилин
-							</strong>
+							<p>
+								<strong>Використовуються випадкові значення.</strong>
+							</p>
 						</p>
 					</div>
 				)}
@@ -188,7 +206,7 @@ function TaskForm({ onTaskCreated }) {
 					className='btn btn-primary btn-large'
 					disabled={loading}
 				>
-					{loading ? '⏳ Creating...' : '🚀 Create Task'}
+					{loading ? 'Створення...' : 'Створити завдання'}
 				</button>
 			</form>
 		</div>

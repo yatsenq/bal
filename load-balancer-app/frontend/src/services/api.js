@@ -52,6 +52,8 @@ export const tasksAPI = {
 	getById: id => api.get(`/tasks/${id}`),
 
 	cancel: id => api.put(`/tasks/${id}/cancel`),
+
+	delete: id => api.delete(`/tasks/${id}`),
 }
 
 export const adminAPI = {
