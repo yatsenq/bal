@@ -16,7 +16,6 @@ const PORT = process.env.PORT || 3001
 const WORKER_ID = process.env.WORKER_ID || 'worker-unknown'
 const JWT_SECRET = process.env.JWT_SECRET
 
-// Перевірка що секрет встановлений
 if (!JWT_SECRET || JWT_SECRET === 'your-secret-key-change-in-production') {
 	console.error('❌ CRITICAL: JWT_SECRET must be set in environment variables!')
 	if (process.env.NODE_ENV === 'production') {
@@ -40,6 +39,8 @@ pool.on('error', (err, client) => {
 		`[${WORKER_ID}] ⚠️ Database connection lost, but pool will reconnect automatically`
 	)
 })
+
+// ✅ ВИПРАВЛЕНО: Збільшено timeout до 20 хвилин
 const taskQueue = new Queue(
 	'linear-equations',
 	process.env.REDIS_URL || 'redis://127.0.0.1:6379',
@@ -50,7 +51,7 @@ const taskQueue = new Queue(
 				type: 'exponential',
 				delay: 2000,
 			},
-			timeout: 600000,
+			timeout: 1200000, // ✅ 20 хвилин
 			removeOnComplete: false,
 			removeOnFail: false,
 		},
@@ -61,6 +62,7 @@ const taskQueue = new Queue(
 		},
 	}
 )
+
 taskQueue.on('ready', async () => {
 	console.log(`[${WORKER_ID}] 🧹 Cleaning up stalled jobs...`)
 
@@ -93,7 +95,6 @@ taskQueue.on('ready', async () => {
 	console.log(`[${WORKER_ID}] ✅ Cleanup complete`)
 })
 
-app.use(cors())
 app.use(cors())
 app.use(express.json({ limit: '200mb' }))
 
@@ -438,6 +439,7 @@ app.put('/api/tasks/:id/cancel', authenticateToken, async (req, res) => {
 		res.status(500).json({ error: 'Failed to cancel task' })
 	}
 })
+
 app.delete('/api/tasks/:id', authenticateToken, async (req, res) => {
 	const taskId = req.params.id
 	const userId = req.user.userId
@@ -477,6 +479,7 @@ app.delete('/api/tasks/:id', authenticateToken, async (req, res) => {
 		res.status(500).json({ error: 'Failed to delete task' })
 	}
 })
+
 // ==================== ADMIN ENDPOINTS ====================
 
 app.get('/api/admin/monitoring', authenticateToken, async (req, res) => {
@@ -569,17 +572,17 @@ async function multiplyMatrices(matrixA, matrixB, taskId, userId) {
 			delay = 100
 			updateInterval = 2
 		} else if (n <= 200) {
-			delay = 200
+			delay = 150
 			updateInterval = 5
 		} else if (n <= 500) {
-			delay = 300
-			updateInterval = 5
+			delay = 200
+			updateInterval = 10
 		} else if (n <= 1000) {
-			delay = 600
-			updateInterval = 5
+			delay = 300
+			updateInterval = 10
 		} else {
-			delay = 500
-			updateInterval = 5
+			delay = 400
+			updateInterval = 10
 		}
 
 		for (let i = 0; i < n; i++) {
@@ -633,7 +636,8 @@ async function updateTaskProgress(taskId, progress, userId) {
 	console.log(`[${WORKER_ID}] Task ${taskId} progress: ${progress}%`)
 }
 
-taskQueue.process(5, async (job, done) => {
+// ✅ ВИПРАВЛЕНО: Без done, просто async function
+taskQueue.process(5, async job => {
 	const { taskId, userId, matrix } = job.data
 
 	console.log(`[${WORKER_ID}] Processing task ${taskId}...`)

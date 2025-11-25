@@ -1,7 +1,6 @@
 version: '3.8'
 
 services:
-  # PostgreSQL Database
   postgres:
     image: postgres:15-alpine
     container_name: postgres_db
@@ -23,7 +22,6 @@ services:
       retries: 5
     restart: unless-stopped
 
-  # pgAdmin для управління PostgreSQL
   pgadmin:
     image: dpage/pgadmin4:latest
     container_name: pgadmin
@@ -38,7 +36,6 @@ services:
       - app_network
     restart: unless-stopped
 
-  # Redis for Bull Queue
   redis:
     image: redis:7-alpine
     container_name: redis_queue
@@ -53,7 +50,6 @@ services:
       retries: 5
     restart: unless-stopped
 
-  # Worker Server 1
   worker1:
     build:
       context: ./worker
@@ -77,7 +73,6 @@ services:
       - app_network
     restart: unless-stopped
 
-  # Worker Server 2
   worker2:
     build:
       context: ./worker
@@ -101,7 +96,6 @@ services:
       - app_network
     restart: unless-stopped
 
-  # Nginx Load Balancer
   nginx:
     image: nginx:alpine
     container_name: nginx_load_balancer
@@ -117,7 +111,6 @@ services:
       - app_network
     restart: unless-stopped
 
-  # Frontend (React)
   frontend:
     build:
       context: ./frontend

@@ -12,36 +12,32 @@ function DashboardPage({ user, onLogout }) {
 	const [showForm, setShowForm] = useState(false)
 	const [currentPage, setCurrentPage] = useState('tasks')
 	const [ws, setWs] = useState(null)
+	const [reconnectAttempts, setReconnectAttempts] = useState(0)
+	const MAX_RECONNECT_ATTEMPTS = 5
 
 	useEffect(() => {
 		loadTasks()
 		connectWebSocket()
 
-		const pollInterval = setInterval(() => {
-			const hasActiveTasks = tasks.some(
-				task => task.status === 'pending' || task.status === 'processing'
-			)
-
-			if (hasActiveTasks) {
-				loadTasks()
-			}
-		}, 3000)
-
 		return () => {
 			if (ws) {
 				ws.close()
 			}
-			clearInterval(pollInterval)
 		}
-	}, [tasks])
+	}, [])
 
 	const connectWebSocket = () => {
+		if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+			console.log('Max reconnection attempts reached')
+			return
+		}
 		const token = localStorage.getItem('token')
 		const wsUrl = `${WS_URL}?token=${token}`
 		const websocket = new WebSocket(wsUrl)
 
 		websocket.onopen = () => {
 			console.log('WebSocket connected')
+			setReconnectAttempts(0)
 		}
 
 		websocket.onmessage = event => {
@@ -59,6 +55,7 @@ function DashboardPage({ user, onLogout }) {
 
 		websocket.onclose = () => {
 			console.log('WebSocket disconnected')
+			setReconnectAttempts(prev => prev + 1)
 			setTimeout(connectWebSocket, 3000)
 		}
 
