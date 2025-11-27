@@ -183,3 +183,151 @@
 		grid-template-columns: 1fr;
 	}
 }
+/* Stats Grid */
+.stats-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+	gap: 1.5rem;
+	margin-bottom: 2rem;
+}
+
+.stats-card {
+	background: #1e293b;
+	border-radius: 12px;
+	padding: 1.5rem;
+	border: 1px solid #334155;
+	transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.stats-card:hover {
+	transform: translateY(-2px);
+	box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+}
+
+.stats-header {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	margin-bottom: 1rem;
+	padding-bottom: 1rem;
+	border-bottom: 1px solid #334155;
+}
+
+.stats-icon {
+	font-size: 1.5rem;
+}
+
+.stats-header h3 {
+	margin: 0;
+	font-size: 1.1rem;
+	color: #f1f5f9;
+}
+
+.stats-content {
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+}
+
+.stat-item {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+
+.stat-label {
+	color: #94a3b8;
+	font-size: 0.9rem;
+}
+
+.stat-value {
+	color: #f1f5f9;
+	font-weight: 600;
+	font-size: 0.95rem;
+}
+
+/* Section */
+.section {
+	background: #1e293b;
+	border-radius: 12px;
+	padding: 1.5rem;
+	margin-bottom: 1.5rem;
+	border: 1px solid #334155;
+}
+
+.section-title {
+	margin: 0 0 1rem 0;
+	font-size: 1.25rem;
+	color: #f1f5f9;
+}
+
+/* Table */
+.table-container {
+	overflow-x: auto;
+}
+
+.data-table {
+	width: 100%;
+	border-collapse: collapse;
+}
+
+.data-table thead {
+	background: #0f172a;
+}
+
+.data-table th {
+	padding: 0.75rem 1rem;
+	text-align: left;
+	font-weight: 600;
+	color: #94a3b8;
+	font-size: 0.875rem;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+}
+
+.data-table td {
+	padding: 0.75rem 1rem;
+	border-top: 1px solid #334155;
+	color: #e2e8f0;
+}
+
+.data-table tbody tr:hover {
+	background: #0f172a;
+}
+
+/* Status badges */
+.status-badge {
+	display: inline-block;
+	padding: 0.25rem 0.75rem;
+	border-radius: 12px;
+	font-size: 0.75rem;
+	font-weight: 600;
+	text-transform: uppercase;
+}
+
+.status-pending {
+	background: #3b82f6;
+	color: white;
+}
+.status-processing {
+	background: #f59e0b;
+	color: white;
+}
+.status-completed {
+	background: #10b981;
+	color: white;
+}
+.status-failed {
+	background: #ef4444;
+	color: white;
+}
+.status-cancelled {
+	background: #6b7280;
+	color: white;
+}
+
+.error-text {
+	color: #fca5a5;
+	font-family: monospace;
+	font-size: 0.85rem;
+}

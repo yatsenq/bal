@@ -22,7 +22,7 @@ if (!JWT_SECRET || JWT_SECRET === 'your-secret-key-change-in-production') {
 		console.error('❌ Exiting in production mode...')
 		process.exit(1)
 	}
-	console.warn('⚠️  Using default JWT_SECRET in development mode')
+	console.warn('Using default JWT_SECRET in development mode')
 }
 const MAX_MATRIX_SIZE = 2000
 
@@ -34,13 +34,12 @@ const pool = new Pool({
 })
 
 pool.on('error', (err, client) => {
-	console.error(`[${WORKER_ID}] ❌ Unexpected database error:`, err.message)
+	console.error(`[${WORKER_ID}] Unexpected database error:`, err.message)
 	console.error(
-		`[${WORKER_ID}] ⚠️ Database connection lost, but pool will reconnect automatically`
+		`[${WORKER_ID}] Database connection lost, but pool will reconnect automatically`
 	)
 })
 
-// ✅ ВИПРАВЛЕНО: Збільшено timeout до 20 хвилин
 const taskQueue = new Queue(
 	'linear-equations',
 	process.env.REDIS_URL || 'redis://127.0.0.1:6379',
@@ -51,20 +50,20 @@ const taskQueue = new Queue(
 				type: 'exponential',
 				delay: 2000,
 			},
-			timeout: 1200000, // ✅ 20 хвилин
+			timeout: 1200000, //20min
 			removeOnComplete: false,
 			removeOnFail: false,
 		},
 		settings: {
-			stalledInterval: 60000,
+			stalledInterval: 60000, //60sec
 			maxStalledCount: 2,
-			lockDuration: 300000,
+			lockDuration: 300000, //5min
 		},
 	}
 )
 
 taskQueue.on('ready', async () => {
-	console.log(`[${WORKER_ID}] 🧹 Cleaning up stalled jobs...`)
+	console.log(`[${WORKER_ID}] Cleaning up stalled jobs...`)
 
 	const jobs = await taskQueue.getJobs(['active', 'waiting', 'delayed'])
 
@@ -85,14 +84,14 @@ taskQueue.on('ready', async () => {
 				dbStatus === 'cancelled'
 			) {
 				await job.remove()
-				console.log(`[${WORKER_ID}] 🗑️ Removed stale job for task ${taskId}`)
+				console.log(`[${WORKER_ID}] Removed stale job for task ${taskId}`)
 			}
 		} catch (err) {
 			console.error(`[${WORKER_ID}] Error checking job ${taskId}:`, err.message)
 		}
 	}
 
-	console.log(`[${WORKER_ID}] ✅ Cleanup complete`)
+	console.log(`[${WORKER_ID}] Cleanup complete`)
 })
 
 app.use(cors())
@@ -553,7 +552,130 @@ app.get('/api/admin/tasks', authenticateToken, async (req, res) => {
 		res.status(500).json({ error: 'Failed to fetch tasks' })
 	}
 })
+// Advanced system monitoring endpoint
+app.get('/api/admin/system-stats', authenticateToken, async (req, res) => {
+	try {
+		// Перевірка admin ролі
+		if (req.user.role !== 'admin') {
+			return res.status(403).json({ error: 'Admin access required' })
+		}
 
+		// 1. System info (CPU, RAM)
+		const os = require('os')
+
+		const systemInfo = {
+			workerId: WORKER_ID,
+			hostname: os.hostname(),
+			platform: os.platform(),
+			cpus: os.cpus().length,
+			cpuUsage: process.cpuUsage(),
+			totalMemory: os.totalmem(),
+			freeMemory: os.freemem(),
+			usedMemory: os.totalmem() - os.freemem(),
+			memoryUsagePercent: (
+				((os.totalmem() - os.freemem()) / os.totalmem()) *
+				100
+			).toFixed(2),
+			uptime: process.uptime(),
+			nodeVersion: process.version,
+		}
+
+		// 2. Tasks statistics (всі користувачі)
+		const taskStats = await pool.query(`
+      SELECT 
+        status,
+        COUNT(*) as count,
+        AVG(matrix_size) as avg_size,
+        MAX(created_at) as last_created
+      FROM tasks
+      GROUP BY status
+    `)
+
+		// 3. Worker statistics
+		const workerStats = await pool.query(`
+      SELECT 
+        worker_id,
+        COUNT(*) as total_tasks,
+        COUNT(CASE WHEN status = 'processing' THEN 1 END) as active_tasks,
+        COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed_tasks,
+        COUNT(CASE WHEN status = 'failed' THEN 1 END) as failed_tasks,
+        AVG(EXTRACT(EPOCH FROM (completed_at - created_at))) as avg_completion_time
+      FROM tasks
+      WHERE worker_id IS NOT NULL
+      GROUP BY worker_id
+    `)
+
+		// 4. Bull Queue statistics
+		const queueStats = {
+			waiting: await taskQueue.getWaitingCount(),
+			active: await taskQueue.getActiveCount(),
+			completed: await taskQueue.getCompletedCount(),
+			failed: await taskQueue.getFailedCount(),
+			delayed: await taskQueue.getDelayedCount(),
+			paused: await taskQueue.getPausedCount(),
+		}
+
+		// 5. WebSocket connections
+		let totalWsConnections = 0
+		wsClients.forEach(connections => {
+			totalWsConnections += connections.length
+		})
+
+		const wsStats = {
+			totalConnections: totalWsConnections,
+			uniqueUsers: wsClients.size,
+			workerId: WORKER_ID,
+		}
+
+		// 6. Recent errors (останні 10)
+		const recentErrors = await pool.query(`
+      SELECT id, user_id, status, error_message, created_at, updated_at
+      FROM tasks
+      WHERE status = 'failed' AND error_message IS NOT NULL
+      ORDER BY updated_at DESC
+      LIMIT 10
+    `)
+
+		// 7. Nginx stats (спробувати отримати)
+		let nginxStats = null
+		try {
+			const axios = require('axios')
+			const nginxResponse = await axios.get('http://nginx/nginx_status', {
+				timeout: 2000,
+			})
+
+			// Парсити текст відповіді
+			const text = nginxResponse.data
+			const lines = text.split('\n')
+
+			nginxStats = {
+				activeConnections: parseInt(lines[0].match(/\d+/)[0]),
+				accepts: parseInt(lines[2].trim().split(/\s+/)[0]),
+				handled: parseInt(lines[2].trim().split(/\s+/)[1]),
+				requests: parseInt(lines[2].trim().split(/\s+/)[2]),
+				reading: parseInt(lines[3].match(/Reading: (\d+)/)[1]),
+				writing: parseInt(lines[3].match(/Writing: (\d+)/)[1]),
+				waiting: parseInt(lines[3].match(/Waiting: (\d+)/)[1]),
+			}
+		} catch (error) {
+			console.error('Failed to fetch Nginx stats:', error.message)
+		}
+
+		res.json({
+			timestamp: new Date().toISOString(),
+			system: systemInfo,
+			tasks: taskStats.rows,
+			workers: workerStats.rows,
+			queue: queueStats,
+			websockets: wsStats,
+			nginx: nginxStats,
+			recentErrors: recentErrors.rows,
+		})
+	} catch (error) {
+		console.error(`[${WORKER_ID}] System stats error:`, error)
+		res.status(500).json({ error: 'Failed to fetch system stats' })
+	}
+})
 // ==================== PROCESSING ====================
 
 async function multiplyMatrices(matrixA, matrixB, taskId, userId) {

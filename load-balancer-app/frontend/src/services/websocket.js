@@ -76,7 +76,7 @@ class WebSocketService {
 		}
 		this.listeners.get(event).push(callback)
 	}
-
+	authAPI
 	off(event, callback) {
 		if (this.listeners.has(event)) {
 			const callbacks = this.listeners.get(event)
@@ -109,3 +109,4 @@ class WebSocketService {
 }
 
 export default new WebSocketService()
+authAPI

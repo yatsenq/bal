@@ -1,8 +1,7 @@
 import axios from 'axios'
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://localhost/api'
-
-export const WS_URL = process.env.REACT_APP_WS_URL || 'wss://localhost/ws'
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost/api'
+export const WS_URL = process.env.REACT_APP_WS_URL || 'ws://localhost/ws'
 
 const api = axios.create({
 	baseURL: API_BASE_URL,
@@ -58,8 +57,8 @@ export const tasksAPI = {
 
 export const adminAPI = {
 	getMonitoring: () => api.get('/admin/monitoring'),
-
 	getAllTasks: (params = {}) => api.get('/admin/tasks', { params }),
+	getSystemStats: () => api.get('/admin/system-stats'), // ← ДОДАТИ
 }
 
 export default api
